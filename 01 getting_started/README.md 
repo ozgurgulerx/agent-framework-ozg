@@ -14,8 +14,4 @@ Agent Framework’s Python API is **async-first**: methods like `agent.run()` re
 
 **Result:** lower perceived latency, higher throughput under load, and sturdier multi-agent orchestration—plus you can display progress (traces/updates) **while** work continues.
 
-#### Tiny code contrast
-```python
-# Agent Framework (async-first)
-result = await agent.run("Are we in a black hole?")
-print(result)
+
