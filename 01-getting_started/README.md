@@ -1,4 +1,4 @@
-## Getting Started
+# Getting Started
 
 Congrats for your first step into learning agent-framework. 
 

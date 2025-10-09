@@ -84,7 +84,8 @@ We welcome documentation improvements, demo scripts, lecture notes, and recorded
 When submitting pull requests, favor approachable naming, add inline comments only where the reasoning would not be obvious to new learners, and reference the upstream sample or doc you derived from if applicable.
 
 ## Resources
-- Official repo: [microsoft/agent-framework](https://github.com/microsoft/agent-framework)
+- Original Microsoft repo: [microsoft/agent-framework](https://github.com/microsoft/agent-framework)
 - Microsoft Learn path: [Agent Framework Overview](https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview)
 - Azure OpenAI: [Service documentation](https://learn.microsoft.com/azure/ai-services/openai/)
 - Responsible AI: [Microsoft Responsible AI resources](https://www.microsoft.com/ai/responsible-ai)
+- Launch announcement: [Introducing Microsoft Agent Framework](https://azure.microsoft.com/en-us/blog/introducing-microsoft-agent-framework/)
