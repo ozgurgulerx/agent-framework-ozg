@@ -1,2 +1,4 @@
 openai
 agent-framework
+azure-identity
+python-dotenv
