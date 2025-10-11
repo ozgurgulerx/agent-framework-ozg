@@ -1,15 +1,14 @@
-# 12-restoring-conversation-history-from-file.py
-# Minimal: create -> run -> save -> load -> resume (no default=str)
-
+# 12b_resume_thread_responses.py
 import os, json, asyncio, tempfile
 from dotenv import load_dotenv
 from agent_framework.azure import AzureOpenAIResponsesClient
 
 load_dotenv()
 THREAD_PATH = os.path.join(tempfile.gettempdir(), "agent_thread.json")
+# Or hardcode the path you printed:
+# THREAD_PATH = "/var/folders/h5/9glc6d8s5fn7pzq2jyhx33940000gn/T/agent_thread_20251009T153855Z.json"
 
 async def main():
-    # Agent (as given)
     agent = AzureOpenAIResponsesClient(
         endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
         deployment_name=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
@@ -20,25 +19,14 @@ async def main():
         instructions="You are professor in astrophysics",
     )
 
-    # Start a thread + one turn
-    thread = agent.get_new_thread()
-    r1 = await agent.run("Are we in a blackhole?", thread=thread)
-    print("reply #1:", r1.text)
-
-    # Persist EXACT serialize() output (no default=str!)
-    state = await thread.serialize()
-    with open(THREAD_PATH, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False)
-    print("saved thread to:", THREAD_PATH)
-
-    # Reload & resume
     with open(THREAD_PATH, "r", encoding="utf-8") as f:
         loaded = json.load(f)
+
+    # Resume the exact conversation
     resumed_thread = await agent.deserialize_thread(loaded)
 
-    # Tiny memory signal (how many messages were restored)
-    prior = len(loaded.get("messages", [])) if isinstance(loaded, dict) else 0
-    print(f"memory: restored {prior} prior message(s)")
+    # Tiny memory signal
+    print(f"memory: restored {len(loaded.get('messages', [])) if isinstance(loaded, dict) else 0} message(s)")
 
     r2 = await agent.run("Continue that thought in one sentence.", thread=resumed_thread)
     print("reply #2:", r2.text)
