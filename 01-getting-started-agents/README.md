@@ -1,6 +1,7 @@
 # Getting Started
 
 Congrats for your first step into learning agent-framework. 
+This section includes easy to run samples from Azure Documentation.
 
 ### Async-First API (Agent Framework vs. Semantic Kernel)
 

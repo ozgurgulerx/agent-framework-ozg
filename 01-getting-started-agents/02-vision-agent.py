@@ -1,6 +1,3 @@
-# pip install agent-framework --pre
-# pip install agent-framework --pre
-# Use `az login` to authenticate with Azure CLI
 import os
 import asyncio
 from agent_framework.azure import AzureOpenAIResponsesClient

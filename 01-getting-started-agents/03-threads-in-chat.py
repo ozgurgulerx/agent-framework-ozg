@@ -30,6 +30,5 @@ async def main():
     print(result2.text)
 
 
-
 if __name__ == "__main__":
     asyncio.run(main())

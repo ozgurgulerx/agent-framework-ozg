@@ -1,6 +1,3 @@
-# pip install agent-framework --pre
-# pip install agent-framework --pre
-# Use `az login` to authenticate with Azure CLI
 import os
 import asyncio
 from agent_framework.azure import AzureOpenAIResponsesClient
@@ -29,7 +26,6 @@ async def main():
             print(update.text, end ="", flush=True)
 
         print()
-
 
 if __name__ == "__main__":
     asyncio.run(main())

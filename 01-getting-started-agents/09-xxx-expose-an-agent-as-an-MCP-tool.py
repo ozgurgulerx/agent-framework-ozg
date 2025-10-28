@@ -43,8 +43,6 @@ async def main():
         tools=weather_agent.as_tool()
     )
 
-
-
     result = await main_agent.run("What is the weather like in Amsterdam?")
     print(result.text)
 
