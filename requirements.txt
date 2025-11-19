@@ -2,3 +2,5 @@ openai
 agent-framework
 azure-identity
 python-dotenv
+fastapi
+uvicorn
