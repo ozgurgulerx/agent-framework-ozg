@@ -22,6 +22,8 @@ async def main():
     )
 
     print(await agent.run("Are we in a blackhole?"))
-
+    api_version=os.environ["AZURE_OPENAI_API_VERSION"]
+    print(api_version)
+   	
 if __name__ == "__main__":
     asyncio.run(main())
