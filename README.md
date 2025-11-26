@@ -1,91 +1,84 @@
 # Agent Framework Accessible Learning Hub
 
-> A friendlier learning fork of Microsoft's Agent Framework, focused on lowering the barriers for students, educators, and indie builders who want to design production-ready AI agents.
+> A friendlier learning fork of Microsoft’s Agent Framework with runnable samples for agents, workflows, memory, reasoning, and Azure AI Foundry.
 
-## Table of Contents
-- [Why This Repository](#why-this-repository)
-- [Agent Framework at a Glance](#agent-framework-at-a-glance)
-- [What You Can Do Here](#what-you-can-do-here)
-- [Quick Start](#quick-start)
-- [Learning Path](#learning-path)
-- [Working With the Samples](#working-with-the-samples)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [Resources](#resources)
+## Overview
+- **Purpose:** Lower the barrier to designing production-ready AI agents by pairing distilled notes with small, runnable samples.
+- **Upstream alignment:** Mirrors patterns from [microsoft/agent-framework](https://github.com/microsoft/agent-framework) while staying classroom- and workshop-friendly.
+- **Focus areas:** Agent quickstarts, workflow orchestration patterns, reasoning demos, memory strategies, and Azure AI Foundry service usage.
 
-## Why This Repository
-- **Accessibility first**: Documentation, examples, and naming aim to introduce Agent Framework ideas without assuming enterprise experience.
-- **Supplement, not replace**: This project mirrors the official [microsoft/agent-framework](https://github.com/microsoft/agent-framework) and is intentionally simpler so you can graduate to the upstream repo confidently.
-- **Education ready**: Lightweight dependencies, easy-to-follow notebooks and scripts (coming soon), and suggested curricula designed for workshops or classrooms.
+## Repository Map
+- `01-af-getting-started-agents/` – Small Python agents: first agent, streaming, vision, function calls (single/multi), structured outputs, observability, persistence. Run with `python 01-af-getting-started-agents/00-first-agent.py "Say hi"` after setting env vars.
+- `02-af-getting-started-workflows/` – Orchestration playbook plus runnable graphs using `AgentWorkflowBuilder` (concurrent, group chat, handoff, magentic, sequential). Also includes workflow extras (shared state, checkpoints, observability) and doc excerpts under `docu/`.
+- `03-af-advanced-reasoning-use-cases/` – Azure OpenAI Responses + reasoning-effort demos, temporal reasoning examples, a FastAPI comparison API (`reasoning_api.py`), and a Vite/Tailwind portal under `reasoning-demos-portal/`.
+- `04-foundry-agent-service/` – Minimal Azure AI Foundry agents via the low-level `AgentsClient` and via Agent Framework’s `AzureAIAgentClient` (AAD auth, hard-coded `gpt-4.1` for reliability).
+- `05-agent-memory-general/` – Six Responses API memory patterns (stateless history, `previous_response_id`, user/session map, JSON profiles, tool-driven memory, episodic summaries) with usage notes in the folder README.
+- `docu/` – PDF references pulled from the official documentation for offline reading.
 
-## Agent Framework at a Glance
-Microsoft's Agent Framework accelerates the delivery of AI copilots and agents that can plan, reason, and act across plugins and data sources. Key building blocks you will encounter as you explore:
-- **Plans and planners** orchestrate multi-step reasoning chains.
-- **Memory abstractions** preserve short- and long-term context across sessions.
-- **Connectors** let agents call REST APIs, databases, and productivity tools.
-- **Evaluation harnesses** keep agent behaviors aligned with business and safety guardrails.
-
-For a full architectural overview, read the official Microsoft documentation: [Agent Framework Overview](https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview).
-
-## What You Can Do Here
-- Walk through bite-sized tutorials that cover authentication, tool calling, planning, and evaluation.
-- Prototype simplified agents with well-commented starter scripts.
-- Compare patterns against the upstream samples to understand why certain abstractions exist.
-- Share teaching aids (slides, diagrams, labs) that help new developers ramp up quickly.
-
-## Quick Start
+## Setup
 ```bash
-# 1. Clone this repository
 git clone https://github.com/ozgurguler/agent-framework-ozg.git
 cd agent-framework-ozg
 
-# 2. Create and activate a virtual environment (Python 3.10+ recommended)
-python -m venv .venv
-source .venv/bin/activate    # On Windows: .venv\Scripts\activate
-
-# 3. Install core dependencies
+python -m venv .venv           # Python 3.10+ recommended
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
+Optional: Node 18+ and yarn/npm if you want to run the `reasoning-demos-portal` frontend.
 
-Recommended environment variables when using OpenAI or Azure OpenAI-powered skills:
+## Environment
+Core Azure OpenAI / Responses settings (save in `.env` or export):
 ```bash
-export OPENAI_API_KEY="sk-..."
-export AZURE_OPENAI_KEY="..."
-export AZURE_OPENAI_ENDPOINT="https://YOUR_RESOURCE.openai.azure.com/"
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com/
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
 ```
 
-## Learning Path
-1. **Orientation** – Skim `README.md` and the official overview to understand core vocabulary.
-2. **Hello, Agent** – Run the introductory notebook (coming soon) that wires a planner to OpenAI functions.
-3. **Tool-Using Agent** – Extend the agent with a simple connector (for example, a weather or news API).
-4. **Memory & Context** – Persist conversation state with vector storage or Azure Cosmos DB.
-5. **Evaluation** – Add regression and safety tests using the framework's evaluation utilities.
-Each stage is intentionally small; advance once you can explain what new abstraction you introduced and why.
+Azure AI Foundry (Agents API) settings used by `04-foundry-agent-service/`:
+```bash
+AZURE_AI_PROJECT_ENDPOINT=https://<project>.services.ai.azure.com/
+# Optional alternative names respected by the samples: AZURE_OPENAI_PROJECT_ENDPOINT, PROJECT_ENDPOINT
+# Model deployment env vars are optional because samples default to gpt-4.1:
+AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4.1
+# Auth: az login (DefaultAzureCredential) or project key via AZURE_AI_PROJECT_KEY / PROJECT_KEY
+```
 
-## Working With the Samples
-- **Notebooks folder (planned)**: Focused, low-noise walkthroughs. Copy and adapt freely.
-- **`samples/` directory (planned)**: Script-based agents instrumented with logging and type hints.
-- **`docs/` directory (planned)**: Lesson plans, slide decks, and diagrams tailored for workshops.
+OPENAI_API_KEY is supported as a fallback in some samples, but Azure settings are the default path.
 
-If you contribute new material, keep filenames descriptive and add a short README inside each subfolder summarizing prerequisites and learning goals.
+## Run Key Samples
+- **Agents quickstart:** `python 01-af-getting-started-agents/00-first-agent.py "Write a haiku"` (see folder for streaming, vision, function-calling, and persistence variants).
+- **Workflow orchestrations:** from repo root:
+  - Concurrent: `python 02-af-getting-started-workflows/orchestrations/01-concurrent/concurrent_workflow_sample.py`
+  - Group chat: `python 02-af-getting-started-workflows/orchestrations/02-group-chat/group_chat_sample.py`
+  - Handoff: `python 02-af-getting-started-workflows/orchestrations/03-handoff/handoff_sample.py`
+  - Magentic: `python 02-af-getting-started-workflows/orchestrations/04-magentic/magentic_sample.py`
+  - Sequential: `python 02-af-getting-started-workflows/orchestrations/05-sequential/sequential_sample.py`
+- **Workflow extras:** `python 02-af-getting-started-workflows/other_patterns/checkpoints/sample.py` (or swap `checkpoints` for `shared-states`, `workflows-as-agents`, or `observability`).
+- **Memory patterns:** e.g., `python 05-agent-memory-general/02_previous_response_id_minimal.py` or `python 05-agent-memory-general/06_episodic_summary_memory.py` after following that folder’s README.
+- **Advanced reasoning:** `python 03-af-advanced-reasoning-use-cases/00-first-agent-reasoning.py` (Responses + reasoning_effort). Temporal demos live in `temporal-reasoning-*.py`. Start the comparison API with `uvicorn reasoning_api:app --reload --app-dir 03-af-advanced-reasoning-use-cases`.
+- **Azure AI Foundry agents:** `python 04-foundry-agent-service/base_agent_framework_foundry_agent.py "Give me a tip for Foundry"` (requires `az login` and a project endpoint).
+- **Frontend portal (optional):**
+  ```bash
+  cd 03-af-advanced-reasoning-use-cases/reasoning-demos-portal
+  yarn install
+  yarn dev
+  ```
 
 ## Troubleshooting
-- `ModuleNotFoundError`: Validate that your virtual environment is active and `pip install -r requirements.txt` completed successfully.
-- Authentication failures: Confirm that environment variables match the Azure or OpenAI resource you are targeting and that the key has the correct permissions.
-- Planner hangs or slow responses: Reduce max tokens, ensure your LLM endpoint is reachable, and inspect logging output for rate limit warnings.
+- Import errors: confirm the virtual environment is active and `pip install -r requirements.txt` completed.
+- Auth failures: ensure the endpoint is the Project endpoint for Foundry samples; ensure Azure/OpenAI keys or AAD credentials match the resource.
+- Slow or stalled runs: reduce completion tokens, verify the deployment name exists, and check for rate limits in the console output.
 
 ## Contributing
-We welcome documentation improvements, demo scripts, lecture notes, and recorded walkthroughs. Please open an issue describing:
-1. What gap you identified.
-2. What resource (code, doc, asset) you propose to add or revise.
-3. Any external prerequisites or licenses to surface for reviewers.
-
-When submitting pull requests, favor approachable naming, add inline comments only where the reasoning would not be obvious to new learners, and reference the upstream sample or doc you derived from if applicable.
+- Open an issue outlining the gap and the resource you plan to add (code, doc, asset), plus any external prerequisites/licenses.
+- Keep filenames descriptive and add a short README to new folders summarizing goals and requirements.
+- Reference upstream docs or samples you adapted so newcomers can trace the origin.
 
 ## Resources
-- Original Microsoft repo: [microsoft/agent-framework](https://github.com/microsoft/agent-framework)
-- Microsoft Learn path: [Agent Framework Overview](https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview)
-- Azure OpenAI: [Service documentation](https://learn.microsoft.com/azure/ai-services/openai/)
-- Responsible AI: [Microsoft Responsible AI resources](https://www.microsoft.com/ai/responsible-ai)
-- Launch announcement: [Introducing Microsoft Agent Framework](https://azure.microsoft.com/en-us/blog/introducing-microsoft-agent-framework/)
+- [microsoft/agent-framework](https://github.com/microsoft/agent-framework)
+- [Agent Framework overview](https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview)
+- [Azure OpenAI documentation](https://learn.microsoft.com/azure/ai-services/openai/)
+- [Microsoft Responsible AI](https://www.microsoft.com/ai/responsible-ai)
+- [Introducing Microsoft Agent Framework](https://azure.microsoft.com/en-us/blog/introducing-microsoft-agent-framework/)
