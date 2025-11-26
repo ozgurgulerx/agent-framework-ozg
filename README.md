@@ -1,5 +1,9 @@
 # 🤖 AI Agents Learning Hub
 
+<p align="center">
+  <img src="05-agent-memory-general/ai-agents-learning-hub-banner.svg" alt="AI Agents Learning Hub banner" width="100%" />
+</p>
+
 > A polished, workshop-ready fork of Microsoft’s Agent Framework with runnable samples for agents, workflows, memory, reasoning, and Azure AI Foundry. This is also the prototyping ground for new features and Microsoft Innovation Hub experiments before they land upstream.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
