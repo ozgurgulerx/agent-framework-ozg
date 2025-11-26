@@ -47,16 +47,15 @@ async def main() -> None:
 
     thread = agent.get_new_thread()
 
-    # First turn: ask the user for a favorite thing to remember.
-    user_msg1 = "Pick your favorite mythical creature and tell me why."
+    # First turn: ask the user for a favorite star.
+    user_msg1 = input("🧑‍🚀 You: What's your favorite star (or constellation) and why? ")
     r1 = await agent.run(user_msg1, thread=thread)
-    print("🧑‍🚀 You:", user_msg1)
     print("🤖 Agent:", r1.text)
 
     # Second turn: ask the agent to remember and be creative.
-    user_msg2 = "Can you craft a short adventure where my favorite creature saves a galaxy?"
-    r2 = await agent.run(user_msg2, thread=thread)
+    user_msg2 = "Craft a short, fun adventure where that star guides a lost spaceship home."
     print("🧑‍🚀 You:", user_msg2)
+    r2 = await agent.run(user_msg2, thread=thread)
     print("🤖 Agent:", r2.text)
 
     # Access the underlying store and show that it can be serialized.
