@@ -50,7 +50,7 @@ async def main() -> None:
     # First turn: ask the user for a favorite star.
     user_msg1 = input("🧑‍🚀 You: What's your favorite star (or constellation) and why? ")
     r1 = await agent.run(user_msg1, thread=thread)
-    print("🤖 Agent:", r1.text)
+    print("🤖 Agent:", r1.text, "(I'll remember this.)")
 
     # Second turn: ask the agent to remember and be creative.
     user_msg2 = "Craft a short, fun adventure where that star guides a lost spaceship home."
@@ -58,12 +58,19 @@ async def main() -> None:
     r2 = await agent.run(user_msg2, thread=thread)
     print("🤖 Agent:", r2.text)
 
+    # Third turn: ask a follow-up that prompts explicit recall.
+    user_msg3 = "What did I tell you about my favorite star, and how would you use it to name a cafe on Mars?"
+    print("🧑‍🚀 You:", user_msg3)
+    r3 = await agent.run(user_msg3, thread=thread)
+    print("🤖 Agent:", r3.text)
+
     # Access the underlying store and show that it can be serialized.
     store = getattr(thread, "_message_store", None)
     if store is not None:
         state: Any = await store.serialize()
-        print("\n[builtin store serialized state]")
+        print("\n[builtin store] Serialized in-memory history (ChatMessageStore):")
         print(state)
+        print("[builtin store] Memory is currently held in-process; serialize() shows how you'd persist it.")
     else:
         print("[builtin store] no message store attached")
 
