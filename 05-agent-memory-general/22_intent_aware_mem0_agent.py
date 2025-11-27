@@ -113,6 +113,16 @@ load_dotenv()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CONFIG HELPER (needed early for intent classifier)
+# ─────────────────────────────────────────────────────────────────────────────
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # INTENT CLASSIFICATION (LLM-BASED)
 # ─────────────────────────────────────────────────────────────────────────────
 class Intent(Enum):
@@ -121,27 +131,26 @@ class Intent(Enum):
     GENERAL = "general"
 
 
-# We'll lazily initialize this to avoid import-time API calls
-_intent_classifier_client = None
+# We'll lazily initialize the classifier agent
+_intent_classifier_agent = None
 
 
-def _get_intent_classifier():
+def _get_intent_classifier_agent():
     """
-    Get or create a lightweight OpenAI client for intent classification.
-    Uses the same Azure OpenAI deployment as the main agent.
+    Get or create a classifier agent using AzureOpenAIResponsesClient.
+    This uses the same API as the main agent (Responses API, not Chat Completions).
     """
-    global _intent_classifier_client
-    if _intent_classifier_client is None:
-        from openai import AzureOpenAI
-        _intent_classifier_client = AzureOpenAI(
+    global _intent_classifier_agent
+    if _intent_classifier_agent is None:
+        client = AzureOpenAIResponsesClient(
+            endpoint=require_env("AZURE_OPENAI_ENDPOINT"),
+            deployment_name=require_env("AZURE_OPENAI_DEPLOYMENT_NAME"),
             api_key=require_env("AZURE_OPENAI_API_KEY"),
             api_version=require_env("AZURE_OPENAI_API_VERSION"),
-            azure_endpoint=require_env("AZURE_OPENAI_ENDPOINT"),
         )
-    return _intent_classifier_client
-
-
-INTENT_CLASSIFICATION_PROMPT = """You are an intent classifier for a supply chain planning system.
+        _intent_classifier_agent = client.create_agent(
+            name="intent-classifier",
+            instructions="""You are an intent classifier for a supply chain planning system.
 
 Classify the user's intent into exactly ONE of these categories:
 - OPTIMIZATION: Questions about capacity planning, resource allocation, scheduling, efficiency, 
@@ -152,18 +161,19 @@ Classify the user's intent into exactly ONE of these categories:
 
 Consider the full conversation context, not just the last message.
 
-Respond with ONLY one word: OPTIMIZATION, FORECASTING, or GENERAL
-"""
+Respond with ONLY one word: OPTIMIZATION, FORECASTING, or GENERAL""",
+        )
+    return _intent_classifier_agent
 
 
-def detect_intent(
+async def detect_intent(
     current_message: str,
     conversation_history: List[ChatMessage],
 ) -> Intent:
     """
     Detect intent using an LLM call with conversation history as context.
     
-    This sends the recent conversation to Azure OpenAI to classify the intent.
+    This sends the recent conversation to Azure OpenAI (Responses API) to classify the intent.
     The conversation history (short-term memory) helps detect context when
     the current message is ambiguous (e.g., "what about last month?").
     """
@@ -191,22 +201,15 @@ def detect_intent(
     trace.info(f"[LLM CLASSIFIER] Context ({len(context_messages)} messages):")
     trace.debug(f"\n{conversation_context}")
     
-    # Call LLM for classification
+    # Call LLM for classification using Responses API
     try:
-        client = _get_intent_classifier()
-        deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+        classifier = _get_intent_classifier_agent()
         
-        response = client.chat.completions.create(
-            model=deployment,
-            messages=[
-                {"role": "system", "content": INTENT_CLASSIFICATION_PROMPT},
-                {"role": "user", "content": f"Conversation:\n{conversation_context}\n\nClassify the intent:"},
-            ],
-            max_tokens=10,
-            temperature=0,  # Deterministic for classification
-        )
+        # Use a fresh thread for each classification (stateless)
+        prompt = f"Conversation:\n{conversation_context}\n\nClassify the intent (respond with ONE word: OPTIMIZATION, FORECASTING, or GENERAL):"
+        response = await classifier.run(prompt)
         
-        result = response.choices[0].message.content.strip().upper()
+        result = response.text.strip().upper()
         trace.info(f"[LLM CLASSIFIER] Raw response: {result}")
         
         # Parse response
@@ -229,13 +232,6 @@ def detect_intent(
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
-def require_env(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"Missing required environment variable: {name}")
-    return value
-
-
 def build_memory_config() -> dict[str, Any]:
     service_name = os.getenv("AZURE_SEARCH_SERVICE_NAME")
     if not service_name:
@@ -344,17 +340,33 @@ class IntentAwareMem0Provider(ContextProvider):
     ) -> None:
         super().__init__()
         self._memory = memory
-        self._user_id = user_id
+        self._base_user_id = user_id  # Base user ID (e.g., "user-ozgur")
         self._max_results = max_results
         self._last_detected_intent: Intent = Intent.GENERAL
 
     @property
     def user_id(self) -> str:
-        return self._user_id
+        return self._base_user_id
 
     @property
     def last_intent(self) -> Intent:
         return self._last_detected_intent
+
+    def _get_user_id_for_intent(self, intent: Intent) -> str:
+        """
+        Get intent-specific user_id for memory segmentation.
+        
+        This allows filtering by intent without needing filterable metadata fields:
+        - OPTIMIZATION → user-ozgur-optimization
+        - FORECASTING  → user-ozgur-forecasting  
+        - GENERAL      → user-ozgur
+        """
+        if intent == Intent.OPTIMIZATION:
+            return f"{self._base_user_id}-optimization"
+        elif intent == Intent.FORECASTING:
+            return f"{self._base_user_id}-forecasting"
+        else:
+            return self._base_user_id
 
     async def invoking(
         self,
@@ -387,56 +399,33 @@ class IntentAwareMem0Provider(ContextProvider):
         # ─────────────────────────────────────────────────────────────────────
         # STEP 1: Detect intent using current message + conversation history
         # ─────────────────────────────────────────────────────────────────────
-        self._last_detected_intent = detect_intent(latest_user_text, msg_list)
+        self._last_detected_intent = await detect_intent(latest_user_text, msg_list)
         intent = self._last_detected_intent
 
         print(f"[intent] Detected: {intent.value.upper()}")
 
         # ─────────────────────────────────────────────────────────────────────
-        # STEP 2: Search Mem0 with metadata filter based on intent
+        # STEP 2: Search Mem0 using intent-specific user_id (USER ID SEGMENTATION)
         # ─────────────────────────────────────────────────────────────────────
-        trace.info(f"[MEM0 SEARCH] user_id: {self._user_id}")
+        search_user_id = self._get_user_id_for_intent(intent)
+        
+        trace.info(f"[MEM0 SEARCH] base_user_id: {self._base_user_id}")
+        trace.info(f"[MEM0 SEARCH] search_user_id: {search_user_id}  ← segmented by intent!")
         trace.info(f"[MEM0 SEARCH] query: {latest_user_text}")
-        trace.info(f"[MEM0 SEARCH] intent filter: {intent.value}")
 
         try:
-            # Build metadata filter based on intent
-            # Note: Mem0's filter syntax may vary by version. This uses a common pattern.
-            if intent != Intent.GENERAL:
-                # Filter by category metadata
-                search_result = self._memory.search(
-                    query=latest_user_text,
-                    user_id=self._user_id,
-                    limit=self._max_results,
-                    filters={"category": intent.value},
-                )
-                trace.info(f"[MEM0 SEARCH] Using filter: category={intent.value}")
-            else:
-                # General query - no filter, search all memories
-                search_result = self._memory.search(
-                    query=latest_user_text,
-                    user_id=self._user_id,
-                    limit=self._max_results,
-                )
-                trace.info("[MEM0 SEARCH] No filter (general query)")
-
+            # Search using intent-specific user_id (no metadata filter needed)
+            search_result = self._memory.search(
+                query=latest_user_text,
+                user_id=search_user_id,
+                limit=self._max_results,
+            )
             log_json("[MEM0 SEARCH] raw response", search_result)
 
         except Exception as exc:
-            # If filtered search fails (e.g., filter syntax not supported),
-            # fall back to unfiltered search
-            trace.warning(f"[MEM0 SEARCH] Filtered search failed: {exc!r}, falling back to unfiltered")
-            try:
-                search_result = self._memory.search(
-                    query=latest_user_text,
-                    user_id=self._user_id,
-                    limit=self._max_results,
-                )
-                log_json("[MEM0 SEARCH] fallback response", search_result)
-            except Exception as exc2:
-                trace.error(f"[MEM0 SEARCH] FAILED: {exc2!r}")
-                print(f"[mem0] search failed: {exc2!r}")
-                return Context(messages=None)
+            trace.error(f"[MEM0 SEARCH] FAILED: {exc!r}")
+            print(f"[mem0] search failed: {exc!r}")
+            return Context(messages=None)
 
         # Parse results
         results = []
@@ -508,28 +497,33 @@ class IntentAwareMem0Provider(ContextProvider):
             trace.warning("No messages to store.")
             return
 
+        # ─────────────────────────────────────────────────────────────────────
+        # STEP 3: Store using intent-specific user_id (USER ID SEGMENTATION)
+        # ─────────────────────────────────────────────────────────────────────
+        intent = self._last_detected_intent
+        store_user_id = self._get_user_id_for_intent(intent)
+        
+        # Use string format (same as file 21 which works)
         combined_text = f"User: {last_user or ''}\nAssistant: {last_assistant or ''}".strip()
-
-        # ─────────────────────────────────────────────────────────────────────
-        # STEP 3: Store with category metadata based on detected intent
-        # ─────────────────────────────────────────────────────────────────────
+        
         metadata = {
             "source": "intent_aware_demo",
-            "category": self._last_detected_intent.value,  # optimization | forecasting | general
+            "category": intent.value,
         }
 
-        trace.info(f"[MEM0 ADD] user_id: {self._user_id}")
-        trace.info(f"[MEM0 ADD] category: {metadata['category']}")
-        trace.info(f"[MEM0 ADD] text: {combined_text[:100]}...")
+        trace.info(f"[MEM0 ADD] base_user_id: {self._base_user_id}")
+        trace.info(f"[MEM0 ADD] store_user_id: {store_user_id}  ← segmented by intent!")
+        trace.info(f"[MEM0 ADD] intent: {intent.value}")
+        trace.info(f"[MEM0 ADD] text: {combined_text[:150]}...")
 
         try:
             add_result = self._memory.add(
-                messages=combined_text,
-                user_id=self._user_id,
+                messages=combined_text,  # String format like file 21
+                user_id=store_user_id,
                 metadata=metadata,
             )
             log_json("[MEM0 ADD] result", add_result)
-            print(f"[mem0] Stored as '{metadata['category']}' memory")
+            print(f"[mem0] Stored as '{intent.value}' memory (user_id: {store_user_id}): {add_result}")
         except Exception as exc:
             trace.error(f"[MEM0 ADD] FAILED: {exc!r}")
             print(f"[mem0] add failed: {exc!r}")
