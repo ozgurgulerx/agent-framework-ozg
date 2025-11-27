@@ -63,6 +63,7 @@ OPENAI_API_KEY is honored as a fallback in some samples, but Azure settings are 
   - Sequential: `python 02-af-getting-started-workflows/orchestrations/05-sequential/sequential_sample.py`
 - **Workflow extras:** `python 02-af-getting-started-workflows/other_patterns/checkpoints/sample.py` (swap `checkpoints` for `shared-states`, `workflows-as-agents`, `observability`).
 - **Memory patterns (Responses API):** `python 05-agent-memory-general/02_previous_response_id_minimal.py` or `.../06_episodic_summary_memory.py`.
+- **Thread serialization:** `python 05-agent-memory-general/17_agent_framework_thread_serialization_and_persistence.py` (save a thread, restart, and keep chatting with full context).
 - **Advanced reasoning:** `python 03-af-advanced-reasoning-use-cases/00-first-agent-reasoning.py` (Responses + reasoning_effort) or `temporal-reasoning-*.py`.
 - **Azure AI Foundry agents:** `python 04-foundry-agent-service/base_agent_framework_foundry_agent.py "Give me a tip for Foundry"` (requires `az login` + project endpoint).
 - **Frontend portal (optional):**
