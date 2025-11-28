@@ -20,7 +20,7 @@ def build_memory_config():
     )
     collection_name = os.getenv("AZURE_SEARCH_COLLECTION_NAME") or os.getenv("AZURE_SEARCH_INDEX_NAME")
 
-    # Same config as file 22
+    # Same config as file 22 (no LLM - we use Responses API for fact extraction)
     return {
         "vector_store": {
             "provider": "azure_ai_search",
@@ -52,15 +52,35 @@ def main():
         "user-ozgur-forecasting",
     ]
 
+    total_deleted = 0
     for user_id in user_ids:
-        print(f"\nClearing memories for: {user_id}")
+        print(f"\n[{user_id}]")
         try:
-            result = memory.delete_all(user_id=user_id)
-            print(f"  Result: {result}")
+            # First, get all memories for this user
+            all_memories = memory.get_all(user_id=user_id)
+            memories_list = all_memories.get("results", []) if isinstance(all_memories, dict) else all_memories
+            
+            if not memories_list:
+                print(f"  No memories found.")
+                continue
+                
+            print(f"  Found {len(memories_list)} memories. Deleting...")
+            
+            # Delete each memory individually
+            for mem in memories_list:
+                mem_id = mem.get("id")
+                if mem_id:
+                    try:
+                        memory.delete(memory_id=mem_id)
+                        print(f"    ✓ Deleted: {mem_id[:20]}... ({mem.get('memory', '')[:40]}...)")
+                        total_deleted += 1
+                    except Exception as del_err:
+                        print(f"    ✗ Failed to delete {mem_id}: {del_err}")
+                        
         except Exception as e:
             print(f"  Error: {e}")
 
-    print("\n✓ Done! Memories cleared for demo.")
+    print(f"\n✓ Done! Deleted {total_deleted} memories total.")
 
 
 if __name__ == "__main__":

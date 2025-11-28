@@ -131,8 +131,9 @@ class Intent(Enum):
     GENERAL = "general"
 
 
-# We'll lazily initialize the classifier agent
+# We'll lazily initialize the agents
 _intent_classifier_agent = None
+_fact_extractor_agent = None
 
 
 def _get_intent_classifier_agent():
@@ -166,6 +167,71 @@ Respond with ONLY one word: OPTIMIZATION, FORECASTING, or GENERAL""",
     return _intent_classifier_agent
 
 
+def _get_fact_extractor_agent():
+    """
+    Get or create a fact extractor agent using AzureOpenAIResponsesClient.
+    This extracts memorable facts from conversations (replaces Mem0's internal LLM).
+    """
+    global _fact_extractor_agent
+    if _fact_extractor_agent is None:
+        client = AzureOpenAIResponsesClient(
+            endpoint=require_env("AZURE_OPENAI_ENDPOINT"),
+            deployment_name=require_env("AZURE_OPENAI_DEPLOYMENT_NAME"),
+            api_key=require_env("AZURE_OPENAI_API_KEY"),
+            api_version=require_env("AZURE_OPENAI_API_VERSION"),
+        )
+        _fact_extractor_agent = client.create_agent(
+            name="fact-extractor",
+            instructions="""You are a fact extractor for a supply chain planning memory system.
+
+Extract key facts, preferences, decisions, and actionable information from conversations.
+Focus on:
+- User preferences and decisions
+- Specific numbers, percentages, quantities
+- Named entities (plants, SKUs, locations)
+- Action items and playbooks
+- Business rules and constraints
+
+Return ONLY a JSON array of fact strings. Each fact should be a complete, standalone statement.
+If no meaningful facts can be extracted, return an empty array: []
+
+Example output:
+["User plans to shift 10% of SKU 123 production to Plant B", "Weekend overtime is authorized for capacity issues"]""",
+        )
+    return _fact_extractor_agent
+
+
+async def extract_facts(conversation_text: str) -> list[str]:
+    """
+    Extract facts from conversation using Responses API.
+    Returns a list of fact strings.
+    """
+    try:
+        extractor = _get_fact_extractor_agent()
+        prompt = f"Extract facts from this conversation:\n\n{conversation_text}\n\nReturn ONLY a JSON array of fact strings:"
+        response = await extractor.run(prompt)
+        
+        result_text = response.text.strip()
+        trace.info(f"[FACT EXTRACTOR] Raw response: {result_text[:200]}...")
+        
+        # Parse JSON array
+        import json
+        # Handle markdown code blocks
+        if result_text.startswith("```"):
+            result_text = result_text.split("```")[1]
+            if result_text.startswith("json"):
+                result_text = result_text[4:]
+            result_text = result_text.strip()
+        
+        facts = json.loads(result_text)
+        if isinstance(facts, list):
+            return [str(f) for f in facts if f]
+        return []
+    except Exception as exc:
+        trace.error(f"[FACT EXTRACTOR] Failed: {exc!r}")
+        return []
+
+
 async def detect_intent(
     current_message: str,
     conversation_history: List[ChatMessage],
@@ -186,14 +252,18 @@ async def detect_intent(
     context_messages = []
     
     # Add recent conversation history (last 6 messages for context)
+    # Skip the last message if it matches current_message (avoid duplication)
     for msg in conversation_history[-6:]:
         role = getattr(msg, "role", None)
         role_val = role.value if hasattr(role, "value") else role
         text = getattr(msg, "text", None)
         if text and role_val in ("user", "assistant"):
+            # Skip if this is the current message (already in history)
+            if role_val == "user" and str(text) == current_message:
+                continue
             context_messages.append(f"{role_val.upper()}: {text}")
     
-    # Add current message
+    # Add current message (always last)
     context_messages.append(f"USER: {current_message}")
     
     conversation_context = "\n".join(context_messages)
@@ -250,6 +320,11 @@ def build_memory_config() -> dict[str, Any]:
         raise RuntimeError("Set AZURE_TEXT_EMBEDDING_DEPLOYMENT_NAME for embeddings.")
 
     collection_name = os.getenv("AZURE_SEARCH_COLLECTION_NAME") or require_env("AZURE_SEARCH_INDEX_NAME")
+    
+    # NOTE: We removed the "llm" config because:
+    # 1. gpt-5-nano uses Responses API, not Chat Completions API
+    # 2. Mem0's azure_openai provider doesn't support Responses API
+    # 3. We do our own fact extraction using extract_facts() with AzureOpenAIResponsesClient
 
     return {
         "vector_store": {
@@ -498,32 +573,32 @@ class IntentAwareMem0Provider(ContextProvider):
             return
 
         # ─────────────────────────────────────────────────────────────────────
-        # STEP 3: Store using intent-specific user_id (USER ID SEGMENTATION)
+        # STEP 3: Store using intent-specific user_id (simple, like file 21)
         # ─────────────────────────────────────────────────────────────────────
         intent = self._last_detected_intent
         store_user_id = self._get_user_id_for_intent(intent)
         
-        # Use string format (same as file 21 which works)
-        combined_text = f"User: {last_user or ''}\nAssistant: {last_assistant or ''}".strip()
+        # Simple: just store the user message (the key info to remember)
+        # Mem0 will embed and store it directly
+        memory_text = last_user or ''
         
         metadata = {
             "source": "intent_aware_demo",
             "category": intent.value,
         }
 
-        trace.info(f"[MEM0 ADD] base_user_id: {self._base_user_id}")
-        trace.info(f"[MEM0 ADD] store_user_id: {store_user_id}  ← segmented by intent!")
+        trace.info(f"[MEM0 ADD] store_user_id: {store_user_id}")
         trace.info(f"[MEM0 ADD] intent: {intent.value}")
-        trace.info(f"[MEM0 ADD] text: {combined_text[:150]}...")
+        trace.info(f"[MEM0 ADD] text: {memory_text[:100]}...")
 
         try:
             add_result = self._memory.add(
-                messages=combined_text,  # String format like file 21
+                messages=memory_text,
                 user_id=store_user_id,
                 metadata=metadata,
             )
             log_json("[MEM0 ADD] result", add_result)
-            print(f"[mem0] Stored as '{intent.value}' memory (user_id: {store_user_id}): {add_result}")
+            print(f"[mem0] Stored as '{intent.value}' (user_id: {store_user_id})")
         except Exception as exc:
             trace.error(f"[MEM0 ADD] FAILED: {exc!r}")
             print(f"[mem0] add failed: {exc!r}")

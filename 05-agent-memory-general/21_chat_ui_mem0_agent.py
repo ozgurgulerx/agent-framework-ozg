@@ -122,8 +122,25 @@ def build_memory_config() -> dict[str, Any]:
     collection_name = os.getenv("AZURE_SEARCH_COLLECTION_NAME") or require_env(
         "AZURE_SEARCH_INDEX_NAME"
     )
+    
+    # LLM deployment for fact extraction (Mem0 needs this to extract facts from messages)
+    llm_deployment = require_env("AZURE_OPENAI_DEPLOYMENT_NAME")
 
     return {
+        "llm": {
+            "provider": "azure_openai",
+            "config": {
+                "model": llm_deployment,
+                "temperature": 0.1,
+                "max_tokens": 2000,
+                "azure_kwargs": {
+                    "azure_deployment": llm_deployment,
+                    "api_version": require_env("AZURE_OPENAI_API_VERSION"),
+                    "azure_endpoint": require_env("AZURE_OPENAI_ENDPOINT"),
+                    "api_key": require_env("AZURE_OPENAI_API_KEY"),
+                },
+            },
+        },
         "vector_store": {
             "provider": "azure_ai_search",
             "config": {
