@@ -1,7 +1,7 @@
 # 🤖 AI Agents Learning Hub
 
 <p align="center">
-  <img src="05-agent-memory-general/ai-agents-learning-hub-banner.png" alt="AI Agents Learning Hub banner" width="100%" />
+  <img src="assets/ai-agents-learning-hub-banner.png" alt="AI Agents Learning Hub banner" width="100%" />
 </p>
 
 > A polished, workshop-ready fork of Microsoft’s Agent Framework with runnable samples for agents, workflows, memory, reasoning, and Azure AI Foundry. This is also the prototyping ground for new features and Microsoft Innovation Hub experiments before they land upstream.
