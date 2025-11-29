@@ -2,5 +2,4 @@ openai
 agent-framework
 azure-identity
 python-dotenv
-fastapi
-uvicorn
+azure-search-documents
