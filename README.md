@@ -62,7 +62,10 @@ OPENAI_API_KEY is honored as a fallback in some samples, but Azure settings are 
   - Magentic: `python 02-af-getting-started-workflows/orchestrations/04-magentic/magentic_sample.py`  
   - Sequential: `python 02-af-getting-started-workflows/orchestrations/05-sequential/sequential_sample.py`
 - **Workflow extras:** `python 02-af-getting-started-workflows/other_patterns/checkpoints/sample.py` (swap `checkpoints` for `shared-states`, `workflows-as-agents`, `observability`).
-- **Memory patterns (Responses API):** `python 05-agent-memory-general/02_previous_response_id_minimal.py` or `.../06_episodic_summary_memory.py`.
+- **Memory (short-term):** `python 05-agent-memory-general/11_agent_framework_in_memory_short_term_chat.py`.
+- **Memory (stores):** `python 05-agent-memory-general/12_agent_framework_ai_search_chat_message_store.py` (AI Search), `.../12_agent_framework_custom_chat_message_store.py` (JSON), `.../12_agent_framework_builtin_chat_message_store_chat_client.py` (built-in store), `.../12_agent_framework_redis_chat_message_store_chat_client.py` (Redis).
+- **Memory (long-term + Mem0):** `python 05-agent-memory-general/15_agent_framework_long_term_mem0_cross_threads.py` or `.../15_agent_framework_long_term_mem0provider_basic_chat_client.py`; multi-agent sharing via `16_*`.
+- **Intent-aware memory + fact extraction:** `python 05-agent-memory-general/22_intent_aware_mem0_agent.py` (scripted demo in `22_demo_script.txt`).
 - **Thread serialization:** `python 05-agent-memory-general/17_agent_framework_thread_serialization_and_persistence.py` (save a thread, restart, and keep chatting with full context).
 - **Advanced reasoning:** `python 03-af-advanced-reasoning-use-cases/00-first-agent-reasoning.py` (Responses + reasoning_effort) or `temporal-reasoning-*.py`.
 - **Azure AI Foundry agents:** `python 04-foundry-agent-service/base_agent_framework_foundry_agent.py "Give me a tip for Foundry"` (requires `az login` + project endpoint).
@@ -75,12 +78,42 @@ OPENAI_API_KEY is honored as a fallback in some samples, but Azure settings are 
 
 ---
 
+## Memory Patterns (05-agent-memory-general)
+- **Short-term options:** DIY stateless history (`01_stateless_history.py`, `02_responses_api_stateless_manual_history.py`, `10_agent_framework_baseline_no_memory.py`) vs. thread-backed chat (`11_agent_framework_in_memory_short_term_chat.py`).
+- **Pluggable stores:** `12_*` variants swap chat history into Azure AI Search, built-in `ChatMessageStore`, custom JSON, or Redis so threads survive process restarts.
+- **Long-term Mem0 + vector search:** `15_*` samples store/retrieve user facts across threads (Mem0 + Azure AI Search embeddings); `16_*` shares that long-term memory across multiple agents.
+- **Thread lifecycle:** `14_agent_framework_responses_persist_and_resume_thread.py` and `17_agent_framework_thread_serialization_and_persistence.py` serialize/restore threads with full context.
+- **Planner demos:** `20_agent_framework_mem0_memory policy.py` and `21_chat_ui_mem0_agent.py` show a supply-chain planner copilot that recalls episodic incidents; `22_intent_aware_mem0_agent.py` adds intent-aware metadata filters (optimization vs forecasting) driven by `22_demo_script.txt`.
+
+<p align="center">
+  <img src="assets/dynamic-memory-policy.svg" alt="Dynamic Memory Policy & Orchestration diagram showing policy brain over short-term and persistent stores" width="90%" />
+</p>
+
+<p align="center">
+  <img src="assets/af-memory-flow.svg" alt="Agent Framework memory flow showing read→generate→write pipeline and multi-level context providers" width="90%" />
+</p>
+
+### Intent-aware long-term memory (`22_intent_aware_mem0_agent.py`)
+- Pipeline: classify user intent (optimization vs forecasting), filter Mem0 search by metadata tags, route the enriched context to the main agent, then extract new facts to append back into long-term memory.
+- Mem0 search uses Azure AI Search under the hood; metadata filters keep threads focused on the right slice of history.
+<p align="center">
+  <img src="assets/intent-aware-mem0-flow.svg" alt="Flow diagram for intent-aware Mem0 agent with intent classifier, Mem0 search, main agent, fact extractor, and Mem0 add" width="80%" />
+</p>
+
+### Supply-chain planner fact-extraction flow (`22_demo_script.txt`)
+- End-to-end path: user message → intent classifier → Mem0 semantic search (filtered by user/category) → main agent response → fact extractor → Mem0 add (embed + store in Azure AI Search). This keeps the planner grounded with newly learned facts per user.
+<p align="center">
+  <img src="assets/mem0-fact-extractor-flow.svg" alt="Flow for the supply-chain planner demo showing intent classification, Mem0 search, main agent, fact extraction, and Mem0 add to Azure AI Search" width="80%" />
+</p>
+
+---
+
 ## Folder Map at a Glance
 - `01-af-getting-started-agents/` — First agent, streaming, vision, function calls, structured outputs, observability, persistence.
 - `02-af-getting-started-workflows/` — Orchestrations (concurrent, group chat, handoff, magentic, sequential) + extras (shared state, checkpoints, observability) + docs under `docu/`.
 - `03-af-advanced-reasoning-use-cases/` — Responses + reasoning demos, temporal reasoning, comparison API (`reasoning_api.py`), Vite/Tailwind portal.
 - `04-foundry-agent-service/` — Azure AI Foundry agents via low-level `AgentsClient` and `AzureAIAgentClient` (AAD or key).
-- `05-agent-memory-general/` — Six Responses memory patterns: stateless history, `previous_response_id`, session map, JSON profile memory, tool-driven memory, episodic summaries.
+- `05-agent-memory-general/` — Memory patterns from stateless history to thread-backed stores (Azure AI Search, Redis, JSON), long-term Mem0 + vector search (single + multi-agent), thread persistence/serialization, and intent-aware planner demos.
 - `docu/` — Offline PDF references from official docs.
 
 ---
