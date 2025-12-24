@@ -1,4 +1,4 @@
-# AI Builder’s Guide to Agent Development with Foundry Agent Service (BRK201)
+# AI Builder’s Guide to Agent Development with Foundry Agent Service 
 
 Build, operate, and scale production-grade AI agents with enterprise governance, observability, and interoperability — without rewriting your code.
 
@@ -307,4 +307,5 @@ Foundry Agent Service doesn’t change how you build agents. It changes whether 
 
 ## Reference
 
-- Microsoft Ignite 2025 — BRK201 (YouTube): https://www.youtube.com/watch?v=7faSLQS501E&list=PLQXpv_NQsPIDKFpgLPXmtPSa15JyCWZKM&index=51
+- [Microsoft Ignite 2025 — BRK201 (YouTube):](https://www.youtube.com/watch?v=7faSLQS501E&list=PLQXpv_NQsPIDKFpgLPXmtPSa15JyCWZKM&index=51)
+
